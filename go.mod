@@ -1,4 +1,4 @@
-module spotify-flac
+module apiservices/spotify-flac
 
 go 1.25.7
 
