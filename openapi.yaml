@@ -1,0 +1,1014 @@
+openapi: 3.0.3
+info:
+  title: Spotify FLAC API
+  description: API for converting Spotify tracks to FLAC format with job management
+  version: 1.0.0
+  contact:
+    name: API Services
+  license:
+    name: MIT
+
+servers:
+  - url: http://localhost:8098
+    description: Development server
+  - url: https://api.example.com
+    description: Production server
+
+paths:
+  /healthz:
+    get:
+      summary: Health check endpoint
+      description: Returns the health status of the service
+      tags:
+        - Health
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+
+  /v1/spotify/lookup:
+    post:
+      summary: Lookup Spotify track
+      description: Extract track information from a Spotify URL
+      tags:
+        - Track Operations
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LookupInput'
+      responses:
+        '200':
+          description: Successful track lookup response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/TrackInfo'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '405':
+          description: Method not allowed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /v1/spotify/jobs:
+    get:
+      summary: List jobs
+      description: Get a list of all conversion jobs
+      tags:
+        - Job Management
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+          description: Maximum number of jobs to return
+          example: 20
+      responses:
+        '200':
+          description: Successful jobs list response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Job'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    post:
+      summary: Create conversion job
+      description: Create a new job to convert Spotify tracks to FLAC
+      tags:
+        - Job Management
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateJobInput'
+      responses:
+        '201':
+          description: Job created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Job'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /v1/spotify/jobs/{jobId}:
+    get:
+      summary: Get job details
+      description: Get detailed information about a specific job
+      tags:
+        - Job Management
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Job ID
+          example: "job-123456"
+      responses:
+        '200':
+          description: Successful job details response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Job'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Job not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /v1/spotify/jobs/{jobId}/events:
+    get:
+      summary: Get job events
+      description: Get event history for a specific job
+      tags:
+        - Job Management
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Job ID
+          example: "job-123456"
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+          description: Maximum number of events to return
+          example: 20
+        - name: before
+          in: query
+          required: false
+          schema:
+            type: integer
+          description: Get events before this timestamp (Unix timestamp)
+          example: 1672531200
+      responses:
+        '200':
+          description: Successful job events response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/JobEventsResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Job not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /v1/spotify/jobs/{jobId}/retry:
+    post:
+      summary: Retry job
+      description: Retry a failed job
+      tags:
+        - Job Management
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Job ID
+          example: "job-123456"
+      responses:
+        '200':
+          description: Job retry initiated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Job'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Job not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /v1/spotify/jobs/{jobId}/resume:
+    post:
+      summary: Resume job
+      description: Resume a paused or cancelled job
+      tags:
+        - Job Management
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Job ID
+          example: "job-123456"
+      responses:
+        '200':
+          description: Job resumed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Job'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Job not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /v1/spotify/jobs/{jobId}/cancel:
+    post:
+      summary: Cancel job
+      description: Cancel a running or queued job
+      tags:
+        - Job Management
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Job ID
+          example: "job-123456"
+      responses:
+        '200':
+          description: Job cancelled successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Job'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Job not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /v1/spotify/jobs/{jobId}/items/{itemIndex}/output:
+    get:
+      summary: Download job item output
+      description: Download the converted FLAC file for a specific job item
+      tags:
+        - Job Management
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Job ID
+          example: "job-123456"
+        - name: itemIndex
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+          description: Item index (1-based)
+          example: 1
+      responses:
+        '200':
+          description: FLAC file download
+          content:
+            audio/flac:
+              schema:
+                type: string
+                format: binary
+          headers:
+            Content-Type:
+              description: MIME type of the output file
+              schema:
+                type: string
+                example: "audio/flac"
+            Content-Disposition:
+              description: File download disposition
+              schema:
+                type: string
+                example: "attachment; filename=\"track.flac\""
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Job or item not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /v1/spotify/webhooks/metrics:
+    get:
+      summary: Get webhook metrics
+      description: Get metrics about webhook delivery performance
+      tags:
+        - Webhook Management
+      security:
+        - ApiKeyAuth: []
+      responses:
+        '200':
+          description: Successful webhook metrics response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/WebhookMetrics'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /v1/spotify/webhooks/failures:
+    get:
+      summary: Get webhook failures
+      description: Get paginated list of webhook delivery failures
+      tags:
+        - Webhook Management
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+          description: Maximum number of failures to return
+          example: 20
+        - name: before
+          in: query
+          required: false
+          schema:
+            type: integer
+          description: Get failures before this timestamp (Unix timestamp)
+          example: 1672531200
+        - name: job_id
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Filter by specific job ID
+          example: "job-123456"
+        - name: event
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Filter by event type
+          example: "job.completed"
+      responses:
+        '200':
+          description: Successful webhook failures response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/WebhookFailuresResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /v1/spotify/webhooks/replay:
+    post:
+      summary: Replay webhook failures
+      description: Retry failed webhook deliveries
+      tags:
+        - Webhook Management
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReplayWebhookInput'
+      responses:
+        '200':
+          description: Webhook replay completed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/ReplayWebhookResult'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+components:
+  schemas:
+    LookupInput:
+      type: object
+      required:
+        - url
+      properties:
+        url:
+          type: string
+          format: uri
+          description: Spotify track URL to lookup
+          example: "https://open.spotify.com/track/4iV5W9uYEdQUVa79Axb7"
+
+    CreateJobInput:
+      type: object
+      required:
+        - items
+      properties:
+        items:
+          type: array
+          description: Array of Spotify URLs to convert
+          minItems: 1
+          maxItems: 50
+          items:
+            type: string
+            format: uri
+          example: ["https://open.spotify.com/track/4iV5W9uYEdQUVa79Axb7"]
+        include_output_base64:
+          type: boolean
+          description: Whether to include base64-encoded output in responses
+          default: false
+          example: false
+
+    TrackInfo:
+      type: object
+      properties:
+        source_url:
+          type: string
+          description: Original Spotify URL
+          example: "https://open.spotify.com/track/4iV5W9uYEdQUVa79Axb7"
+        platform:
+          type: string
+          description: Source platform
+          example: "spotify"
+        kind:
+          type: string
+          description: Track kind
+          example: "track"
+        track_id:
+          type: string
+          description: Spotify track ID
+          example: "4iV5W9uYEdQUVa79Axb7"
+        title:
+          type: string
+          description: Track title
+          example: "Example Song"
+        artist:
+          type: string
+          description: Track artist
+          example: "Example Artist"
+        album:
+          type: string
+          description: Track album
+          example: "Example Album"
+        cover_url:
+          type: string
+          description: Cover art URL
+          example: "https://i.scdn.co/image/cover.jpg"
+
+    JobItem:
+      type: object
+      properties:
+        source_url:
+          type: string
+          description: Original Spotify URL
+          example: "https://open.spotify.com/track/4iV5W9uYEdQUVa79Axb7"
+        status:
+          type: string
+          enum: [pending, processing, completed, failed, retrying]
+          description: Item processing status
+          example: "completed"
+        track:
+          $ref: '#/components/schemas/TrackInfo'
+        output_filename:
+          type: string
+          description: Generated output filename
+          example: "track.flac"
+        output_mime:
+          type: string
+          description: Output MIME type
+          example: "audio/flac"
+        size_bytes:
+          type: integer
+          description: Output file size in bytes
+          example: 41943040
+        output_base64:
+          type: string
+          description: Base64-encoded output (if requested)
+          example: "data:audio/flac;base64,AAAA..."
+        error:
+          type: string
+          description: Error message if failed
+          example: "download failed"
+        attempt_count:
+          type: integer
+          description: Number of processing attempts
+          example: 1
+        last_attempted_at:
+          type: string
+          format: date-time
+          description: Last attempt timestamp
+          example: "2023-01-01T12:00:00Z"
+
+    Job:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Job unique identifier
+          example: "job-123456"
+        status:
+          type: string
+          enum: [pending, processing, completed, failed, cancelled, paused]
+          description: Overall job status
+          example: "processing"
+        cancel_requested:
+          type: boolean
+          description: Whether job cancellation was requested
+          example: false
+        created_at:
+          type: string
+          format: date-time
+          description: Job creation timestamp
+          example: "2023-01-01T12:00:00Z"
+        updated_at:
+          type: string
+          format: date-time
+          description: Last update timestamp
+          example: "2023-01-01T12:05:00Z"
+        started_at:
+          type: string
+          format: date-time
+          description: Job start timestamp
+          example: "2023-01-01T12:01:00Z"
+        finished_at:
+          type: string
+          format: date-time
+          description: Job completion timestamp
+          example: "2023-01-01T12:10:00Z"
+        include_output_base64:
+          type: boolean
+          description: Whether to include base64 output
+          example: false
+        total_items:
+          type: integer
+          description: Total number of items in job
+          example: 5
+        completed_items:
+          type: integer
+          description: Number of completed items
+          example: 3
+        failed_items:
+          type: integer
+          description: Number of failed items
+          example: 1
+        items:
+          type: array
+          description: Job items
+          items:
+            $ref: '#/components/schemas/JobItem'
+        events:
+          type: array
+          description: Job events
+          items:
+            $ref: '#/components/schemas/JobEvent'
+
+    JobEvent:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+          description: Event timestamp
+          example: "2023-01-01T12:00:00Z"
+        type:
+          type: string
+          description: Event type
+          enum: [job.created, job.started, job.completed, job.failed, item.started, item.completed, item.failed]
+          example: "job.created"
+        message:
+          type: string
+          description: Event message
+          example: "Job created successfully"
+        item_index:
+          type: integer
+          description: Related item index (for item events)
+          example: 0
+        item_status:
+          type: string
+          description: Item status at event time
+          example: "pending"
+
+    JobEventsResponse:
+      type: object
+      properties:
+        job_id:
+          type: string
+          description: Job ID
+          example: "job-123456"
+        count:
+          type: integer
+          description: Number of events returned
+          example: 15
+        total:
+          type: integer
+          description: Total number of events
+          example: 25
+        before:
+          type: integer
+          description: Next 'before' parameter for pagination
+          example: 1672531200
+        next_before:
+          type: integer
+          description: Next 'before' parameter for pagination
+          example: 1672531100
+        events:
+          type: array
+          description: Job events
+          items:
+            $ref: '#/components/schemas/JobEvent'
+
+    WebhookMetrics:
+      type: object
+      properties:
+        attempts:
+          type: integer
+          description: Total webhook delivery attempts
+          example: 150
+        successes:
+          type: integer
+          description: Successful webhook deliveries
+          example: 140
+        failures:
+          type: integer
+          description: Failed webhook deliveries
+          example: 10
+        retried_events:
+          type: integer
+          description: Number of events that were retried
+          example: 8
+        dead_letters:
+          type: integer
+          description: Number of events that failed permanently
+          example: 2
+        last_event:
+          type: string
+          description: Last event type sent
+          example: "job.completed"
+        last_job_id:
+          type: string
+          description: Last job ID processed
+          example: "job-123456"
+        last_error:
+          type: string
+          description: Last error encountered
+          example: "connection timeout"
+        last_status_code:
+          type: integer
+          description: Last HTTP status code
+          example: 200
+        updated_at:
+          type: string
+          format: date-time
+          description: Metrics last updated
+          example: "2023-01-01T12:00:00Z"
+
+    WebhookFailure:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+          description: Failure timestamp
+          example: "2023-01-01T12:00:00Z"
+        event:
+          type: string
+          description: Event type
+          example: "job.completed"
+        job_id:
+          type: string
+          description: Job ID
+          example: "job-123456"
+        url:
+          type: string
+          description: Webhook URL
+          example: "https://example.com/webhook"
+        attempts:
+          type: integer
+          description: Number of delivery attempts
+          example: 3
+        last_status_code:
+          type: integer
+          description: Last HTTP status code
+          example: 500
+        error:
+          type: string
+          description: Error message
+          example: "internal server error"
+        payload:
+          type: string
+          description: Original webhook payload
+          example: "{\"job_id\":\"job-123456\"}"
+
+    WebhookFailuresResponse:
+      type: object
+      properties:
+        total:
+          type: integer
+          description: Total number of failures
+          example: 50
+        before:
+          type: integer
+          description: Current 'before' parameter
+          example: 1672531200
+        next_before:
+          type: integer
+          description: Next 'before' parameter for pagination
+          example: 1672531100
+        job_id:
+          type: string
+          description: Filtered job ID
+          example: "job-123456"
+        event:
+          type: string
+          description: Filtered event type
+          example: "job.completed"
+        count:
+          type: integer
+          description: Number of failures returned
+          example: 20
+        failures:
+          type: array
+          description: Webhook failures
+          items:
+            $ref: '#/components/schemas/WebhookFailure'
+
+    ReplayWebhookInput:
+      type: object
+      properties:
+        limit:
+          type: integer
+          description: Maximum number of failures to replay
+          minimum: 1
+          maximum: 100
+          example: 10
+        before:
+          type: integer
+          description: Replay failures before this timestamp (Unix timestamp)
+          example: 1672531200
+        job_id:
+          type: string
+          description: Replay failures for specific job ID
+          example: "job-123456"
+        event:
+          type: string
+          description: Replay failures for specific event type
+          example: "job.completed"
+
+    ReplayWebhookResult:
+      type: object
+      properties:
+        total:
+          type: integer
+          description: Total failures considered for replay
+          example: 25
+        before:
+          type: integer
+          description: 'before' parameter used
+          example: 1672531200
+        next_before:
+          type: integer
+          description: Next 'before' parameter for pagination
+          example: 1672531100
+        selected:
+          type: integer
+          description: Number of failures selected for replay
+          example: 10
+        attempted:
+          type: integer
+          description: Number of replay attempts made
+          example: 10
+        succeeded:
+          type: integer
+          description: Number of successful replays
+          example: 8
+        failed:
+          type: integer
+          description: Number of failed replays
+          example: 2
+        results:
+          type: array
+          description: Individual replay results
+          items:
+            $ref: '#/components/schemas/WebhookReplayEntry'
+
+    WebhookReplayEntry:
+      type: object
+      properties:
+        event:
+          type: string
+          description: Event type
+          example: "job.completed"
+        job_id:
+          type: string
+          description: Job ID
+          example: "job-123456"
+        success:
+          type: boolean
+          description: Whether replay was successful
+          example: true
+        attempts:
+          type: integer
+          description: Number of replay attempts
+          example: 1
+        last_status_code:
+          type: integer
+          description: Last HTTP status code
+          example: 200
+        error:
+          type: string
+          description: Error message if failed
+          example: "timeout"
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error message
+          example: "url is required"
+
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: Authorization
+      description: API key for authentication (format: "Bearer YOUR_API_KEY")
+
+tags:
+  - name: Health
+    description: Health check endpoints
+  - name: Track Operations
+    description: Spotify track lookup and information
+  - name: Job Management
+    description: Job creation, monitoring, and control
+  - name: Webhook Management
+    description: Webhook delivery monitoring and replay
