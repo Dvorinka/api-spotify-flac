@@ -6,9 +6,9 @@ services:
     type: docker
     image: spotify-flac-api:latest
     ports:
-      - "8080:8080"
+      - "30013:30013"
     environment:
-      - PORT=8080
+      - PORT=30013
       - ENVIRONMENT=production
       - SPOTIFY_FLAC_API_KEY={{SPOTIFY_FLAC_API_KEY}}
       - RAPIDAPI_PROXY_SECRET={{RAPIDAPI_PROXY_SECRET}}
