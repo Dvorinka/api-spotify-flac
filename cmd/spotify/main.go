@@ -18,7 +18,7 @@ import (
 func main() {
 	logger := log.New(os.Stdout, "[spotify] ", log.LstdFlags)
 
-	port := envString("PORT", "8098")
+	port := envString("PORT", "30015")
 	apiKey := envString("SPOTIFY_API_KEY", "dev-spotify-key")
 	if apiKey == "dev-spotify-key" {
 		logger.Println("SPOTIFY_API_KEY not set, using default development key")
