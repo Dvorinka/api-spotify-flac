@@ -12,6 +12,7 @@ type LookupInput struct {
 type CreateJobInput struct {
 	Items               []string `json:"items"`
 	IncludeOutputBase64 bool     `json:"include_output_base64,omitempty"`
+	PreferLinks         bool     `json:"prefer_links,omitempty"`
 }
 
 type TrackInfo struct {
@@ -29,6 +30,10 @@ type JobItem struct {
 	SourceURL       string    `json:"source_url"`
 	Status          string    `json:"status"`
 	Track           TrackInfo `json:"track"`
+	DownloadURL     string    `json:"download_url,omitempty"`
+	ExpiresAt       time.Time `json:"expires_at,omitempty"`
+	Quality         string    `json:"quality,omitempty"`
+	Source          string    `json:"source,omitempty"`
 	OutputFilename  string    `json:"output_filename,omitempty"`
 	OutputMime      string    `json:"output_mime,omitempty"`
 	SizeBytes       int       `json:"size_bytes,omitempty"`
@@ -47,6 +52,7 @@ type Job struct {
 	StartedAt           time.Time  `json:"started_at,omitempty"`
 	FinishedAt          time.Time  `json:"finished_at,omitempty"`
 	IncludeOutputBase64 bool       `json:"include_output_base64"`
+	PreferLinks         bool       `json:"prefer_links,omitempty"`
 	TotalItems          int        `json:"total_items"`
 	CompletedItems      int        `json:"completed_items"`
 	FailedItems         int        `json:"failed_items"`

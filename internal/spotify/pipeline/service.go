@@ -23,6 +23,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"apiservices/spotify-flac/internal/spotify/linkgen"
 )
 
 var (
@@ -59,6 +61,7 @@ type Service struct {
 	webhookStats   WebhookMetrics
 	httpClient     *http.Client
 	nowFn          func() time.Time
+	linkManager    *linkgen.LinkManager
 
 	jobs       map[string]*Job
 	jobCancels map[string]context.CancelFunc
@@ -143,6 +146,7 @@ func NewService(cfg Config) (*Service, error) {
 		webhookDLQFile: filepath.Join(filepath.Dir(stateFile), "webhook_failures.jsonl"),
 		httpClient:     &http.Client{Timeout: 10 * time.Second},
 		nowFn:          func() time.Time { return time.Now().UTC() },
+		linkManager:    linkgen.NewLinkManager(),
 		jobs:           make(map[string]*Job),
 		jobCancels:     make(map[string]context.CancelFunc),
 		queue:          make(chan string, 1024),
@@ -201,6 +205,7 @@ func (s *Service) CreateJob(_ context.Context, input CreateJobInput) (Job, error
 		CreatedAt:           now,
 		UpdatedAt:           now,
 		IncludeOutputBase64: input.IncludeOutputBase64,
+		PreferLinks:         input.PreferLinks,
 		TotalItems:          len(input.Items),
 		Items:               make([]JobItem, 0, len(input.Items)),
 	}
@@ -745,8 +750,19 @@ func (s *Service) processItem(jobID string, idx int, jobCtx context.Context) {
 
 	track, err := s.Lookup(ctx, LookupInput{URL: item.SourceURL})
 	if err != nil {
-		s.finishItem(jobID, idx, track, "", nil, err)
+		s.finishItem(jobID, idx, track, "", []byte{}, err)
 		return
+	}
+
+	// Check if job prefers links over downloads
+	if job.IncludeOutputBase64 && job.PreferLinks {
+		// Try to get download link
+		link, err := s.linkManager.GetDownloadLink(ctx, track.TrackID)
+		if err == nil && link != nil {
+			s.finishItemWithLink(jobID, idx, track, link, nil)
+			return
+		}
+		// Fall back to traditional download if link generation fails
 	}
 
 	filenameBase := normalizeFilename(track.Title)
@@ -757,13 +773,13 @@ func (s *Service) processItem(jobID string, idx int, jobCtx context.Context) {
 	outputPath := filepath.Join(s.outputDir, outputFile)
 
 	if err := s.runDownloader(ctx, track, outputPath); err != nil {
-		s.finishItem(jobID, idx, track, "", nil, err)
+		s.finishItem(jobID, idx, track, "", []byte{}, err)
 		return
 	}
 
 	payload, err := os.ReadFile(outputPath)
 	if err != nil {
-		s.finishItem(jobID, idx, track, "", nil, fmt.Errorf("failed reading output: %w", err))
+		s.finishItem(jobID, idx, track, "", []byte{}, fmt.Errorf("failed reading output: %w", err))
 		return
 	}
 	s.finishItem(jobID, idx, track, outputFile, payload, nil)
@@ -806,6 +822,44 @@ func (s *Service) finishItem(jobID string, idx int, track TrackInfo, outputFile 
 		}
 	}
 	s.appendJobEventLocked(job, "item."+item.Status, "item processing finished", idx+1, item.Status)
+	job.UpdatedAt = s.nowFn()
+	recomputeJobCounters(job)
+	s.mu.Unlock()
+	s.persist()
+}
+
+func (s *Service) finishItemWithLink(jobID string, idx int, track TrackInfo, link *linkgen.DownloadLink, processErr error) {
+	s.mu.Lock()
+	job, ok := s.jobs[jobID]
+	if !ok || idx < 0 || idx >= len(job.Items) {
+		s.mu.Unlock()
+		return
+	}
+	item := &job.Items[idx]
+	if item.Status == "canceled" || job.Status == "canceled" || job.CancelRequested {
+		job.UpdatedAt = s.nowFn()
+		recomputeJobCounters(job)
+		s.mu.Unlock()
+		s.persist()
+		return
+	}
+
+	item.Track = track
+	if processErr != nil {
+		item.Status = "failed"
+		item.Error = processErr.Error()
+		item.DownloadURL = ""
+	} else {
+		item.Status = "completed"
+		item.Error = ""
+		item.DownloadURL = link.URL
+		item.ExpiresAt = link.ExpiresAt
+		item.Quality = link.Quality
+		item.Source = link.Source
+		item.SizeBytes = int(link.FileSize)
+		item.OutputMime = link.MimeType
+	}
+	s.appendJobEventLocked(job, "item."+item.Status, "item link generation finished", idx+1, item.Status)
 	job.UpdatedAt = s.nowFn()
 	recomputeJobCounters(job)
 	s.mu.Unlock()

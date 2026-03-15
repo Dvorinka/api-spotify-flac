@@ -31,6 +31,10 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.handleLookup(w, r)
 	case path == "jobs":
 		h.handleJobsCollection(w, r)
+	case path == "download-link":
+		h.handleGetDownloadLink(w, r)
+	case path == "link-cache-stats":
+		h.handleLinkCacheStats(w, r)
 	case path == "webhooks/metrics":
 		h.handleWebhookMetrics(w, r)
 	case path == "webhooks/failures":
